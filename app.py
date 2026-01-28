@@ -18,21 +18,18 @@ SPEED_RE = re.compile(r"speed=\s*([\d\.]+x)")
 
 ffmpeg_path_cache = None
 
+
 def find_ffmpeg():
     global ffmpeg_path_cache
-
     if ffmpeg_path_cache and os.path.exists(ffmpeg_path_cache):
         return ffmpeg_path_cache
-
     if os.path.exists("ffmpeg.exe"):
         ffmpeg_path_cache = os.path.abspath("ffmpeg.exe")
         return ffmpeg_path_cache
-
     path = shutil.which("ffmpeg")
     if path:
         ffmpeg_path_cache = path
         return path
-
     return None
 
 
@@ -57,6 +54,7 @@ def update_stats(label, t, b, s):
     label.config(
         text=f"Time: {t or '--'}   |   Bitrate: {b or '--'}   |   Speed: {s or '--'}"
     )
+
 
 def download_video(ffmpeg, url, output_path, status, button, log_box, stats):
     try:
@@ -111,7 +109,8 @@ def download_video(ffmpeg, url, output_path, status, button, log_box, stats):
     finally:
         button.config(state="normal")
 
-def start_download(url_entry, status, button, log_box, stats):
+
+def start_download(url_entry, format_var, status, button, log_box, stats):
     url = url_entry.get().strip()
     log_box.delete("1.0", tk.END)
     update_stats(stats, "--", "--", "--")
@@ -127,14 +126,14 @@ def start_download(url_entry, status, button, log_box, stats):
             "FFmpeg was not found.\nDo you want to locate ffmpeg.exe manually?"
         ):
             return
-
         ffmpeg = ask_for_ffmpeg()
         if not ffmpeg:
             return
 
+    fmt = format_var.get()
     output_path = filedialog.asksaveasfilename(
-        defaultextension=".mp4",
-        filetypes=[("MP4 Video", "*.mp4")],
+        defaultextension=f".{fmt}",
+        filetypes=[(fmt.upper(), f"*.{fmt}")],
         title="Save video as"
     )
 
@@ -149,10 +148,11 @@ def start_download(url_entry, status, button, log_box, stats):
         daemon=True
     ).start()
 
+
 def main():
     root = tk.Tk()
     root.title("m3u8 Video Downloader")
-    root.geometry("820x520")
+    root.geometry("820x560")
     root.resizable(False, False)
 
     bg = "#0f1115"
@@ -169,6 +169,34 @@ def main():
             fg=kw.pop("fg", fg),
             **kw
         )
+    
+    def styled_button(parent, text, command):
+        btn = tk.Button(
+            parent,
+            text=text,
+            command=command,
+            bg=accent,
+            fg="white",
+            activebackground="#388bfd",
+            activeforeground="white",
+            relief="flat",
+            bd=0,
+            padx=18,
+            pady=8,
+            font=("Segoe UI", 10, "bold"),
+            cursor="hand2"
+        )
+
+        def on_enter(e):
+            btn.config(bg="#388bfd")
+
+        def on_leave(e):
+            btn.config(bg=accent)
+
+        btn.bind("<Enter>", on_enter)
+        btn.bind("<Leave>", on_leave)
+        return btn
+
 
     label("Video URL:").pack(pady=6)
 
@@ -182,21 +210,43 @@ def main():
     )
     url_entry.pack(pady=4)
 
+    label("Output Format:").pack(pady=4)
+
+    format_var = tk.StringVar(value="mp4")
+    formats = ["mp4", "mov", "webm", "mkv"]
+
+    option = tk.OptionMenu(root, format_var, *formats)
+    option.config(
+        bg="#161b22",
+        fg=fg,
+        activebackground="#21262d",
+        activeforeground=fg,
+        highlightthickness=0,
+        relief="flat",
+        font=("Segoe UI", 10),
+        cursor="hand2"
+    )
+    option["menu"].config(
+        bg="#161b22",
+        fg=fg,
+        activebackground="#1f6feb",
+        activeforeground="white",
+        relief="flat"
+    )
+    option.pack(pady=4)
+
+
     status = label("Idle", fg="#9da5b4")
     status.pack(pady=4)
 
-    btn = tk.Button(
+    btn = styled_button(
         root,
-        text="Start Download",
-        width=22,
-        bg=accent,
-        fg="white",
-        relief="flat",
-        command=lambda: start_download(
-            url_entry, status, btn, log_box, stats
+        "Start Download",
+        lambda: start_download(
+            url_entry, format_var, status, btn, log_box, stats
         )
     )
-    btn.pack(pady=6)
+    btn.pack(pady=10)
 
     stats = label(
         "Time: --   |   Bitrate: --   |   Speed: --",
